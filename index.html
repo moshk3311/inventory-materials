@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6faf7">
+<title>ניהול חומרי גלם</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #f6faf7;
+    --bg2: #eaf3ec;
+    --surface: #ffffff;
+    --surface2: #f0f7f2;
+    --border: #c3ddc8;
+    --border2: #d9edd9;
+    --accent: #0f7a38;
+    --accent-light: #e6f4eb;
+    --accent2: #0d9488;
+    --accent2-light: #e6f4f3;
+    --red: #e53e3e;
+    --red-light: #fff5f5;
+    --yellow: #d69e2e;
+    --yellow-light: #fffbeb;
+    --green: #15803d;
+    --green-light: #f0fff4;
+    --text: #1a2e1e;
+    --text2: #3d6147;
+    --text3: #9db4a1;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(26,127,212,0.10);
+    --shadow-md: 0 4px 24px rgba(26,127,212,0.14);
+    --nav-height: 64px;
+    --bottom-nav: 68px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    direction: rtl;
+    padding-bottom: calc(var(--bottom-nav) + max(0px, env(safe-area-inset-bottom)));
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-left: max(20px, env(safe-area-inset-left));
+    height: calc(var(--nav-height) + max(0px, env(safe-area-inset-top)));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .logo-wrap { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, #0f7a38, #0d9488);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 17px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .logo-sub { font-size: 11px; color: var(--text3); font-weight: 400; }
+
+  /* Desktop nav */
+  .desktop-nav { display: flex; gap: 4px; }
+  .desktop-nav button {
+    background: none; border: none;
+    color: var(--text2); font-family: 'Heebo', sans-serif;
+    font-size: 14px; font-weight: 600;
+    padding: 8px 14px; border-radius: var(--radius-sm);
+    cursor: pointer; transition: all 0.18s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .desktop-nav button:hover { background: var(--accent-light); color: var(--accent); }
+  .desktop-nav button.active { background: var(--accent); color: #fff; }
+
+  /* ── BOTTOM NAV (mobile) ── */
+  .bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: calc(var(--bottom-nav) + max(0px, env(safe-area-inset-bottom)));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(26,127,212,0.10);
+    z-index: 100;
+    padding: 0 4px;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+  .bottom-nav-inner { display: flex; height: 100%; }
+  .bottom-nav-btn {
+    flex: 1; border: none; background: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; cursor: pointer; font-family: 'Heebo', sans-serif;
+    color: var(--text3); font-size: 10px; font-weight: 600;
+    transition: all 0.18s; border-radius: 12px; margin: 6px 2px;
+  }
+  .bottom-nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+  .bottom-nav-btn.active { background: var(--accent-light); color: var(--accent); }
+  .bottom-nav-btn.active .nav-icon { transform: scale(1.1); }
+
+  /* ── MAIN ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; padding-right: max(16px, env(safe-area-inset-right)); padding-left: max(16px, env(safe-area-inset-left)); }
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 17px; font-weight: 800; color: var(--text);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ── BOTTLENECK BANNER ── */
+  .bn-banner {
+    background: linear-gradient(135deg, var(--accent) 0%, #0a5c29 100%);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    color: #fff;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    box-shadow: 0 4px 20px rgba(26,127,212,0.3);
+  }
+  .bn-icon { font-size: 32px; }
+  .bn-info { flex: 1; }
+  .bn-label { font-size: 12px; opacity: 0.8; font-weight: 500; margin-bottom: 2px; }
+  .bn-material { font-size: 20px; font-weight: 900; }
+  .bn-right { text-align: left; }
+  .bn-prod-label { font-size: 11px; opacity: 0.75; }
+  .bn-prod-val { font-size: 26px; font-weight: 900; }
+  .bn-status { font-size: 12px; margin-top: 2px; opacity: 0.9; }
+
+  /* ── MATERIAL CARDS ── */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .mat-card {
+    background: var(--surface);
+    border: 2px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .mat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .mat-card.ok { border-color: #c6f0df; }
+  .mat-card.caution { border-color: #fde68a; }
+  .mat-card.warning { border-color: #fca5a5; }
+  .mat-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .mat-name { font-size: 15px; font-weight: 800; color: var(--text); }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+  }
+  .dot-ok { background: #34d399; box-shadow: 0 0 0 3px #d1fae5; }
+  .dot-caution { background: #fbbf24; box-shadow: 0 0 0 3px #fef3c7; }
+  .dot-warning { background: #f87171; box-shadow: 0 0 0 3px #fee2e2; }
+  .mat-stock-val { font-size: 30px; font-weight: 900; color: var(--accent); line-height: 1; }
+  .mat-stock-unit { font-size: 13px; color: var(--text3); font-weight: 400; }
+  .mat-prod-cap { font-size: 13px; color: var(--text2); margin: 8px 0; }
+  .mat-prod-cap strong { color: var(--text); font-weight: 700; }
+  .progress-wrap { height: 7px; background: var(--bg2); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+  .fill-ok { background: linear-gradient(90deg, #34d399, #0d9488); }
+  .fill-caution { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .fill-warning { background: linear-gradient(90deg, #f87171, #ef4444); }
+  .mat-meta { font-size: 12px; color: var(--text3); }
+  .mat-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700; padding: 3px 9px;
+    border-radius: 20px; margin-top: 10px;
+  }
+  .badge-ok { background: var(--green-light); color: var(--green); }
+  .badge-caution { background: var(--yellow-light); color: var(--yellow); }
+  .badge-warning { background: var(--red-light); color: var(--red); }
+
+  /* ── FORM CARD ── */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; }
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Heebo', sans-serif;
+    font-size: 15px; font-weight: 500;
+    padding: 12px 13px;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    outline: none; direction: rtl;
+    -webkit-appearance: none; appearance: none;
+    min-height: 48px;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,127,212,0.12); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233d6147'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 34px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px; font-weight: 700;
+    padding: 12px 20px; border-radius: var(--radius-sm);
+    border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all 0.18s; white-space: nowrap;
+    min-height: 48px;
+    min-width: 48px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(26,127,212,0.3); }
+  .btn-primary:hover { background: #1569b8; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-success { background: var(--accent2); color: #fff; box-shadow: 0 2px 8px rgba(15,184,160,0.3); }
+  .btn-success:hover { background: #0ca08a; }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1.5px solid var(--border); }
+  .btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-outline:hover { background: var(--accent-light); }
+  .btn-secondary:hover { background: var(--bg2); }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1.5px solid #fca5a5; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
+  th {
+    background: var(--bg2); color: var(--text2);
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    padding: 10px 14px; text-align: right; border-bottom: 2px solid var(--border);
+  }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border2); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--accent-light); }
+  .type-in { color: var(--green); font-weight: 700; }
+  .type-out { color: var(--red); font-weight: 700; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 6px; margin-bottom: 18px; background: var(--surface); border-radius: var(--radius-sm); padding: 5px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .tab {
+    flex: 1; padding: 9px 8px; border-radius: 6px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    border: none; background: none; color: var(--text2);
+    font-family: 'Heebo', sans-serif; transition: all 0.18s; text-align: center;
+  }
+  .tab.active { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(26,127,212,0.25); }
+
+  /* ── CAMPAIGN CARD ── */
+  .campaign-card {
+    background: var(--surface); border: 1.5px solid var(--border2);
+    border-radius: var(--radius); padding: 18px 20px; margin-bottom: 12px;
+    box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;
+  }
+  .campaign-name { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .campaign-meta { font-size: 13px; color: var(--text2); }
+  .badge-active { background: var(--accent2-light); color: var(--accent2); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+  .badge-done { background: var(--bg2); color: var(--text3); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+
+  /* ── STATS ROW ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 14px; text-align: center; box-shadow: var(--shadow);
+  }
+  .stat-val { font-size: 22px; font-weight: 900; color: var(--accent); }
+  .stat-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; font-weight: 600; }
+
+  /* ── CONSUMPTION GRID ── */
+  .consumption-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 14px; }
+  .cons-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+  .cons-box label { display: block; margin-bottom: 6px; }
+
+  /* ── REPORT TABLE ── */
+  .report-table th { background: var(--accent); color: #fff; }
+  .report-total td { background: var(--accent-light) !important; font-weight: 700; }
+
+  /* ── DIFF ── */
+  /* ── LOGIN SCREEN ── */
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 999;
+    background: linear-gradient(135deg, #e6f4eb 0%, #d0ecd6 50%, #c3ddc8 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-left: max(20px, env(safe-area-inset-left));
+  }
+  .login-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 8px 40px rgba(26,127,212,0.18);
+    border: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  @media (max-width: 430px) {
+    .login-box { padding: 32px 20px; border-radius: 16px; }
+    .login-logo { margin-bottom: 20px; }
+    .login-title { font-size: 20px; }
+    .login-form { gap: 12px; }
+    .login-btn { min-height: 48px; font-size: 16px; }
+  }
+  .login-logo {
+    text-align: center; margin-bottom: 28px;
+  }
+  .login-logo-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, #0f7a38, #0d9488);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 26px; margin-bottom: 12px;
+  }
+  .login-title { font-size: 22px; font-weight: 900; color: var(--text); }
+  .login-sub { font-size: 13px; color: var(--text3); margin-top: 4px; }
+  .login-form { display: flex; flex-direction: column; gap: 14px; }
+  .login-form label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 5px; }
+  .login-form input {
+    width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'Heebo', sans-serif; font-size: 15px; font-weight: 500;
+    padding: 12px 14px; outline: none; direction: ltr;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .login-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,127,212,0.12); }
+  .login-btn {
+    width: 100%; background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm); padding: 13px;
+    font-family: 'Heebo', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.18s; margin-top: 4px;
+  }
+  .login-btn:hover { background: #1569b8; }
+  .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .login-error {
+    background: var(--red-light); border: 1px solid #fca5a5;
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    color: var(--red); font-size: 13px; font-weight: 600; text-align: center;
+    display: none;
+  }
+  .login-error.show { display: block; }
+  .user-info {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text2);
+  }
+  .user-email { font-weight: 600; color: var(--text); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logout-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--text2);
+    cursor: pointer; font-family: 'Heebo', sans-serif; transition: all 0.18s;
+  }
+  .logout-btn:hover { background: var(--red-light); border-color: #fca5a5; color: var(--red); }
+
+  .btn-delete {
+    background: none; border: none; cursor: pointer;
+    font-size: 15px; padding: 4px 6px; border-radius: 6px;
+    opacity: 0.4; transition: all 0.18s;
+    line-height: 1;
+  }
+  .btn-delete:hover { background: var(--red-light); opacity: 1; transform: scale(1.15); }
+
+  .diff-pos { color: var(--green); font-weight: 700; }
+  .diff-neg { color: var(--red); font-weight: 700; }
+
+  /* ── NOTIFICATION ── */
+  .notif {
+    position: fixed; bottom: calc(var(--bottom-nav) + 12px + max(0px, env(safe-area-inset-bottom))); left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--surface); border-radius: 12px;
+    padding: 12px 22px; font-size: 14px; font-weight: 700;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    z-index: 999; opacity: 0; transition: all 0.25s; pointer-events: none; white-space: nowrap;
+    max-width: calc(100% - 32px);
+  }
+  .notif.success { border: 2px solid #34d399; color: var(--green); }
+  .notif.error { border: 2px solid #f87171; color: var(--red); }
+  .notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── LOADING ── */
+  .loading { text-align: center; color: var(--text3); padding: 40px 20px; font-size: 15px; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 768px) {
+    .desktop-nav { display: none; }
+    .bottom-nav { display: block; }
+    .logo-sub { display: none; }
+    main { padding: 20px 16px 100px 16px; }
+
+    /* Header adjustments */
+    header { padding: 0 16px; height: 60px; }
+    .logo-wrap { gap: 12px; }
+    .logo-icon { width: 36px; height: 36px; font-size: 16px; }
+    .logo-text { font-size: 16px; }
+    .user-email { max-width: 120px; }
+
+    /* Navigation */
+    .bottom-nav { height: 72px; }
+    .bottom-nav-btn { font-size: 11px; padding: 8px 4px; }
+    .bottom-nav-btn .nav-icon { font-size: 22px; }
+
+    /* Banner */
+    .bn-banner { padding: 18px 16px; gap: 14px; flex-direction: column; align-items: flex-start; }
+    .bn-icon { font-size: 28px; }
+    .bn-info { flex: 1; width: 100%; }
+    .bn-label { font-size: 11px; }
+    .bn-material { font-size: 18px; }
+    .bn-right { width: 100%; text-align: right; }
+    .bn-prod-label { font-size: 10px; }
+    .bn-prod-val { font-size: 24px; }
+
+    /* Cards */
+    .cards-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .mat-card { padding: 16px 14px; }
+    .mat-name { font-size: 14px; }
+    .mat-stock-val { font-size: 24px; }
+    .mat-stock-unit { font-size: 12px; }
+
+    /* Forms */
+    .form-card { padding: 18px 14px; margin-bottom: 18px; }
+    .form-grid { grid-template-columns: 1fr; gap: 12px; }
+    .form-grid .form-group:last-child { grid-column: span 1; }
+    label { font-size: 12px; }
+    input, select, textarea { font-size: 16px; padding: 12px 14px; }
+
+    /* Buttons */
+    .btn { font-size: 14px; padding: 12px 18px; min-height: 48px; }
+    .btn-row { gap: 8px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { font-size: 13px; min-width: 100%; }
+    th, td { padding: 10px 8px; font-size: 12px; }
+
+    /* Sections */
+    .section-title { font-size: 16px; margin-bottom: 14px; }
+
+    /* Stats */
+    .stats-row { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+    .stat-box { padding: 12px; }
+    .stat-val { font-size: 20px; }
+    .stat-lbl { font-size: 10px; }
+
+    /* Consumption */
+    .consumption-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .cons-box { padding: 10px; min-width: 0; }
+    .cons-box input { padding: 10px; font-size: 15px; }
+
+    /* Campaign */
+    .campaign-card { padding: 16px; flex-direction: column; gap: 8px; }
+    .campaign-name { font-size: 14px; }
+    .campaign-meta { font-size: 12px; }
+
+    /* Tabs */
+    .tabs { padding: 4px; gap: 4px; }
+    .tab { font-size: 12px; padding: 8px 6px; }
+
+    /* Notification */
+    .notif { bottom: calc(var(--bottom-nav) + 16px + max(0px, env(safe-area-inset-bottom))); padding: 10px 18px; font-size: 13px; }
+  }
+
+  @media (max-width: 430px) {
+    header { padding: 0 12px; height: 52px; }
+    main { padding: 12px 10px 90px 10px; }
+    .logo-text { font-size: 15px; }
+    .bn-banner { padding: 10px 12px; gap: 6px; flex-direction: row; align-items: center; margin-bottom: 12px; }
+    .bn-banner .bn-icon { display: none; }
+    .bn-info { flex: 1; width: auto; }
+    .bn-label { font-size: 10px; }
+    .bn-material { font-size: 14px; }
+    .bn-right { width: auto; margin-top: 0; text-align: left; }
+    .bn-prod-val { font-size: 18px; }
+    .bn-status { font-size: 10px; }
+    .section-title { font-size: 14px; margin-bottom: 10px; }
+    .cards-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .mat-card { padding: 12px 10px; }
+    .mat-card-top { margin-bottom: 6px; }
+    .mat-name { font-size: 12px; }
+    .mat-stock-val { font-size: 20px; }
+    .mat-stock-unit { font-size: 11px; }
+    .mat-prod-cap { font-size: 11px; margin: 4px 0; }
+    .progress-wrap { height: 5px; margin-bottom: 5px; }
+    .mat-meta { font-size: 10px; }
+    .mat-badge { font-size: 10px; padding: 2px 7px; margin-top: 6px; }
+    .form-grid { gap: 10px; padding: 2px; }
+    input, select, textarea { font-size: 16px; }
+    .btn { width: 100%; justify-content: center; }
+    .btn-row { flex-direction: column; gap: 8px; }
+    .btn-row .btn { width: 100%; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 6px; }
+    .consumption-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .cons-box { padding: 8px; min-width: 0; }
+    .cons-box label { font-size: 11px; }
+    .cons-box input { padding: 8px; font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">🌿</div>
+    <div>
+      <div class="logo-text">חומרי גלם</div>
+      <div class="logo-sub">דשן מגורען</div>
+    </div>
+  </div>
+  <div class="user-info" id="user-info" style="display:flex;">
+    <span class="user-email" id="user-email">Tracephos</span>
+  </div>
+  <nav class="desktop-nav">
+    <button class="active" onclick="showPage('dashboard',this)">📊 דשבורד</button>
+    <button onclick="showPage('transactions',this)">📥 הזנה</button>
+    <button onclick="showPage('campaigns',this)">🏭 קמפיינים</button>
+    <button onclick="showPage('reports',this)">📋 דוחות</button>
+    <button onclick="showPage('simulation',this)">🧮 סימולציה</button>
+  </nav>
+</header>
+
+<!-- BOTTOM NAV (mobile) -->
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bottom-nav-btn active" id="bnav-dashboard" onclick="showPage('dashboard',this,'bnav')">
+      <span class="nav-icon">📊</span><span>דשבורד</span>
+    </button>
+    <button class="bottom-nav-btn" id="bnav-transactions" onclick="showPage('transactions',this,'bnav')">
+      <span class="nav-icon">📥</span><span>הזנה</span>
+    </button>
+    <button class="bottom-nav-btn" id="bnav-campaigns" onclick="showPage('campaigns',this,'bnav')">
+      <span class="nav-icon">🏭</span><span>קמפיינים</span>
+    </button>
+    <button class="bottom-nav-btn" id="bnav-reports" onclick="showPage('reports',this,'bnav')">
+      <span class="nav-icon">📋</span><span>דוחות</span>
+    </button>
+    <button class="bottom-nav-btn" id="bnav-simulation" onclick="showPage('simulation',this,'bnav')">
+      <span class="nav-icon">🧮</span><span>סימולציה</span>
+    </button>
+  </div>
+</div>
+
+<main>
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="bn-banner" id="bn-banner">
+      <div class="bn-icon">⚡</div>
+      <div class="bn-info">
+        <div class="bn-label">חומר מגביל — צוואר בקבוק</div>
+        <div class="bn-material" id="bn-mat">טוען...</div>
+      </div>
+      <div class="bn-right">
+        <div class="bn-prod-label">יכולת ייצור מקסימלית</div>
+        <div class="bn-prod-val" id="bn-prod">—</div>
+        <div class="bn-status" id="bn-status"></div>
+      </div>
+    </div>
+    <div class="cards-grid" id="cards-grid">
+      <div class="loading">⏳ טוען נתונים...</div>
+    </div>
+  </div>
+
+  <!-- TRANSACTIONS -->
+  <div id="page-transactions" class="page">
+    <div class="section-title">📥 הזנת כניסה / יציאה</div>
+    <div class="form-card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>חומר גלם</label>
+          <select id="tx-mat"></select>
+        </div>
+        <div class="form-group">
+          <label>סוג פעולה</label>
+          <select id="tx-type">
+            <option value="in">📦 כניסה</option>
+            <option value="out">📤 יציאה</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>כמות (טון)</label>
+          <input type="number" id="tx-qty" placeholder="0.000" step="0.001" min="0" inputmode="decimal">
+        </div>
+        <div class="form-group">
+          <label>מס' שקים (חישוב אוטומטי)</label>
+          <input type="number" id="tx-bags" placeholder="0" step="1" min="0" inputmode="numeric" oninput="bagsToTons()">
+        </div>
+        <div class="form-group">
+          <label>תאריך</label>
+          <input type="date" id="tx-date">
+        </div>
+        <div class="form-group">
+          <label>הערה</label>
+          <input type="text" id="tx-note" placeholder="אופציונלי">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="submitTx()">✅ שמור</button>
+        <button class="btn btn-secondary" onclick="clearTx()">🗑 נקה</button>
+      </div>
+    </div>
+
+    <div class="section-title">📜 פעולות אחרונות</div>
+    <div class="form-card">
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group">
+          <label>סינון חומר</label>
+          <select id="f-mat" onchange="loadHistory()"><option value="">הכל</option></select>
+        </div>
+        <div class="form-group">
+          <label>מתאריך</label>
+          <input type="date" id="f-from" onchange="loadHistory()">
+        </div>
+        <div class="form-group">
+          <label>עד תאריך</label>
+          <input type="date" id="f-to" onchange="loadHistory()">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>תאריך</th><th>חומר</th><th>סוג</th><th>כמות (ט')</th><th>הערה</th><th></th></tr></thead>
+          <tbody id="hist-tbody"><tr><td colspan="5" class="loading">טוען...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMPAIGNS -->
+  <div id="page-campaigns" class="page">
+    <div class="tabs">
+      <button class="tab active" onclick="campTab('list',this)">📋 רשימה</button>
+      <button class="tab" onclick="campTab('new',this)">➕ חדש</button>
+      <button class="tab" onclick="campTab('entry',this)">📝 הזנה יומית</button>
+    </div>
+
+    <div id="ctab-list">
+      <div id="camp-list"><div class="loading">טוען...</div></div>
+    </div>
+
+    <div id="ctab-new" style="display:none;">
+      <div class="form-card">
+        <div class="section-title">➕ קמפיין חדש</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>שם הקמפיין</label>
+            <input type="text" id="camp-name" placeholder="קמפיין אפריל 2026">
+          </div>
+          <div class="form-group">
+            <label>תאריך התחלה</label>
+            <input type="date" id="camp-start">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-success" onclick="createCampaign()">✅ פתח קמפיין</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="ctab-entry" style="display:none;">
+      <div class="form-card">
+        <div class="section-title">📝 הזנה יומית</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>קמפיין</label>
+            <select id="e-camp" onchange="onCampChange()"></select>
+          </div>
+          <div class="form-group">
+            <label>תאריך</label>
+            <input type="date" id="e-date" onchange="loadExistingEntry()">
+          </div>
+          <div class="form-group">
+            <label>ייצור יומי (טון דשן)</label>
+            <input type="number" id="e-prod" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
+          </div>
+        </div>
+        <div class="consumption-grid" id="cons-inputs"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="submitEntry()">✅ שמור הזנה</button>
+        </div>
+      </div>
+
+      <div id="camp-summary" style="display:none;">
+        <div class="section-title">📊 סיכום קמפיין</div>
+        <div class="stats-row" id="camp-stats"></div>
+        <div class="form-card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>תאריך</th><th>ייצור (ט')</th><th>אבץ</th><th>מנגן</th><th>נחושת</th><th>קולמניט</th></tr></thead>
+              <tbody id="camp-rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:20px;">📐 תשומה: תיאורטי מול בפועל</div>
+        <div class="form-card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>חומר</th><th>תיאורטי</th><th>בפועל</th><th>הפרש</th></tr></thead>
+              <tbody id="theory-rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-danger" onclick="closeCampaign()">🔒 סגור קמפיין</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="page-reports" class="page">
+    <div class="section-title">📋 דוחות</div>
+    <div class="btn-row" style="margin-bottom:1rem;">
+      <button id="mode-monthly-btn" class="btn btn-primary" onclick="setReportMode('monthly')">📅 דוח חודשי</button>
+      <button id="mode-camp-btn" class="btn btn-outline" onclick="setReportMode('campaign')">📆 דוח קמפיין</button>
+    </div>
+
+    <!-- טופס דוח חודשי -->
+    <div id="monthly-form" class="form-card">
+      <div class="form-grid" style="max-width:360px;">
+        <div class="form-group">
+          <label>שנה</label>
+          <select id="r-year"></select>
+        </div>
+        <div class="form-group">
+          <label>חודש</label>
+          <select id="r-month">
+            <option value="1">ינואר</option><option value="2">פברואר</option><option value="3">מרץ</option>
+            <option value="4">אפריל</option><option value="5">מאי</option><option value="6">יוני</option>
+            <option value="7">יולי</option><option value="8">אוגוסט</option><option value="9">ספטמבר</option>
+            <option value="10">אוקטובר</option><option value="11">נובמבר</option><option value="12">דצמבר</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="genReport()">🔍 הפק דוח</button>
+        <button class="btn btn-success" onclick="exportXlsx()">📥 ייצוא Excel</button>
+      </div>
+    </div>
+
+    <!-- טופס דוח קמפיין -->
+    <div id="campaign-form" class="form-card" style="display:none;">
+      <div class="form-group" style="max-width:360px;">
+        <label>קמפיין</label>
+        <select id="r-camp" onchange="onCampRptChange()"></select>
+      </div>
+      <div class="form-grid" style="max-width:400px;">
+        <div class="form-group">
+          <label>מתאריך</label>
+          <input type="date" id="r-start">
+        </div>
+        <div class="form-group">
+          <label>עד תאריך</label>
+          <input type="date" id="r-end">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="genCampaignReport()">🔍 הפק דוח</button>
+        <button class="btn btn-success" onclick="exportCampaignXlsx()">📥 ייצוא Excel</button>
+      </div>
+    </div>
+
+    <!-- פלט דוח חודשי -->
+    <div id="report-out" style="display:none;">
+      <div class="form-card">
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead><tr><th>חומר</th><th>פתיחה (ט')</th><th>כניסות (ט')</th><th>יציאות (ט')</th><th>סגירה (ט')</th></tr></thead>
+            <tbody id="report-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- פלט דוח קמפיין -->
+    <div id="campaign-report-out" style="display:none;">
+      <div class="form-card">
+        <div class="section-title" style="font-size:1rem;">📦 סיכום ייצור</div>
+        <div id="camp-rpt-stats" class="stats-row"></div>
+      </div>
+      <div class="form-card">
+        <div class="section-title" style="font-size:1rem;">🧪 מלאי ותשומות חומרים</div>
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead><tr>
+              <th>חומר</th><th>פתיחה (ט')</th><th>סגירה (ט')</th>
+              <th>נצרך (ט')</th><th>תיאורטי</th><th>בפועל</th><th>הפרש</th>
+            </tr></thead>
+            <tbody id="camp-rpt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- canvas מוסתר לגרף -->
+    <canvas id="chart-canvas" width="900" height="400" style="display:none;position:absolute;left:-9999px;"></canvas>
+  </div>
+
+  <!-- SIMULATION -->
+  <div id="page-simulation" class="page">
+    <div class="section-title">🧮 סימולציית הזמנה</div>
+    <div class="form-card" style="max-width:420px;">
+      <div class="form-group">
+        <label>כמות ייצור רצויה (טון)</label>
+        <input type="number" id="sim-qty" min="0" step="1000" placeholder="לדוגמה: 50000" inputmode="numeric">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runSimulation()">🔍 חשב</button>
+      </div>
+    </div>
+    <div id="sim-results" style="display:none; margin-top:1.5rem;">
+      <div class="section-title">כמות להזמנה לפי חומר</div>
+      <div class="form-card">
+        <div class="table-wrap">
+          <table id="sim-table" style="width:100%"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="login-overlay" style="display:none;">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🌿</div>
+      <div class="login-title">חומרי גלם</div>
+      <div class="login-sub">דשן מגורען — כניסה למערכת</div>
+    </div>
+    <div class="login-form">
+      <div>
+        <label>אימייל</label>
+        <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div>
+        <label>סיסמה</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">כניסה למערכת</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+const SB_URL = 'https://wayigvagjucphixkcsim.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndheWlndmFnanVjcGhpeGtjc2ltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMTQzODIsImV4cCI6MjA5MTU5MDM4Mn0.kCOxuQj8-szUOWg66-c6YVL45g8yjI0s941zGmrX35g';
+const db = supabase.createClient(SB_URL, SB_KEY);
+const MIN_PROD = 30000;
+let mats = [];
+let rptData = [];
+let campRptData = [];
+let campRptEntries = [];
+let reportMode = 'monthly';
+let _campRptList = null;
+let _campTotalProd = 0;
+
+// ─── NAV ──────────────────────────────────────────────────────
+function showPage(page, btn, navType) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (navType === 'bnav') {
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.desktop-nav button').forEach(b => b.classList.remove('active'));
+  } else {
+    document.querySelectorAll('.desktop-nav button').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+    const bnav = document.getElementById('bnav-' + page);
+    if (bnav) bnav.classList.add('active');
+  }
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'transactions') { populateMatSelects(); loadHistory(); }
+  if (page === 'campaigns') { loadCampList(); loadCampSelects(); }
+  if (page === 'reports') initReport();
+  if (page === 'simulation') loadSimulation();
+}
+
+// ─── NOTIFY ───────────────────────────────────────────────────
+function notify(msg, type='success') {
+  const n = document.getElementById('notif');
+  n.textContent = msg; n.className = 'notif ' + type + ' show';
+  setTimeout(() => n.classList.remove('show'), 3000);
+}
+
+// ─── STOCK ────────────────────────────────────────────────────
+async function getStock(matId) {
+  const [{ data: txData, error }, { data: campData }] = await Promise.all([
+    db.from('transactions').select('type,quantity').eq('material_id', matId),
+    db.from('campaign_material_consumption').select('consumed_qty').eq('material_id', matId)
+  ]);
+  if (error) throw error;
+  const txStock = (txData||[]).reduce((s,t) => s + (t.type==='in' ? +t.quantity : -t.quantity), 0);
+  const campUsed = (campData||[]).reduce((s,c) => s + (c.consumed_qty||0), 0);
+  return Math.max(0, txStock - campUsed);
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────
+async function loadDashboard() {
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = '<div class="loading">⏳ טוען...</div>';
+  try {
+    const {data, error} = await db.from('materials').select('*').order('id');
+    if (error) throw error;
+    mats = data || [];
+    if (!mats.length) { grid.innerHTML='<div class="loading">לא נמצאו חומרים בבסיס הנתונים</div>'; return; }
+    const stocks = await Promise.all(mats.map(m => getStock(m.id)));
+    renderDashboard(mats, stocks);
+  } catch(err) {
+    console.error('Dashboard error:', err);
+    grid.innerHTML = `<div class="loading" style="color:var(--red)">❌ שגיאת חיבור לבסיס נתונים<br><small style="color:var(--text3)">${err.message||err}</small><br><br>
+      <span style="font-size:13px">בדוק שדומיין Netlify מורשה ב-Supabase:<br>Settings → API → Allowed origins</span></div>`;
+  }
+}
+
+function renderDashboard(mats, stocks) {
+  const grid = document.getElementById('cards-grid');
+  let bnMat = null, bnProd = Infinity;
+
+  grid.innerHTML = mats.map((m,i) => {
+    const stock = stocks[i];
+    const maxProd = Math.floor(stock / m.theoretical_input);
+    const minStock = MIN_PROD * m.theoretical_input;
+    const pct = Math.min(100, (stock / (minStock * 2)) * 100);
+    if (maxProd < bnProd) { bnProd = maxProd; bnMat = m.name; }
+    let cls='ok', dotCls='dot-ok', fillCls='fill-ok', badgeCls='badge-ok', badgeTxt='✅ תקין';
+    if (stock < minStock) { cls='warning'; dotCls='dot-warning'; fillCls='fill-warning'; badgeCls='badge-warning'; badgeTxt='🚨 מלאי נמוך!'; }
+    else if (stock < minStock * 1.3) { cls='caution'; dotCls='dot-caution'; fillCls='fill-caution'; badgeCls='badge-caution'; badgeTxt='⚠️ קרוב למינימום'; }
+    if (maxProd < bnProd) { bnProd = maxProd; bnMat = m.name; }
+    return `<div class="mat-card ${cls}">
+      <div class="mat-card-top"><div class="mat-name">${m.name}</div><div class="status-dot ${dotCls}"></div></div>
+      <div class="mat-stock-val">${stock.toFixed(2)}<span class="mat-stock-unit"> טון</span></div>
+      <div class="mat-prod-cap">ייצור אפשרי: <strong>${maxProd.toLocaleString()} טון</strong></div>
+      <div class="progress-wrap"><div class="progress-fill ${fillCls}" style="width:${pct}%"></div></div>
+      <div class="mat-meta">מינימום: ${minStock.toFixed(2)} ט' | שק: ${m.bag_size} ט'</div>
+      <div class="mat-badge ${badgeCls}">${badgeTxt}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bn-mat').textContent = bnMat || '—';
+  document.getElementById('bn-prod').textContent = isFinite(bnProd) ? bnProd.toLocaleString() + ' טון' : '—';
+  const ok = isFinite(bnProd) && bnProd >= MIN_PROD;
+  document.getElementById('bn-status').textContent = ok ? '✅ מעל רמת המינימום' : '⚠️ פחות מ-30,000 טון!';
+  document.getElementById('bn-banner').style.background = ok
+    ? 'linear-gradient(135deg,#0f7a38,#0a5c29)'
+    : 'linear-gradient(135deg,#e53e3e,#c53030)';
+}
+
+// ─── TRANSACTIONS ─────────────────────────────────────────────
+async function populateMatSelects() {
+  if (!mats.length) { const {data} = await db.from('materials').select('*').order('id'); mats = data||[]; }
+  const opts = mats.map(m=>`<option value="${m.id}" data-bag="${m.bag_size}">${m.name}</option>`).join('');
+  document.getElementById('tx-mat').innerHTML = opts;
+  document.getElementById('f-mat').innerHTML = '<option value="">הכל</option>' + opts;
+  document.getElementById('tx-date').value = today();
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function bagsToTons() {
+  const sel = document.getElementById('tx-mat');
+  const bag = parseFloat(sel.options[sel.selectedIndex]?.dataset.bag||1);
+  const bags = parseFloat(document.getElementById('tx-bags').value)||0;
+  document.getElementById('tx-qty').value = (bags*bag).toFixed(3);
+}
+
+async function submitTx() {
+  const material_id = parseInt(document.getElementById('tx-mat').value);
+  const type = document.getElementById('tx-type').value;
+  const quantity = parseFloat(document.getElementById('tx-qty').value);
+  const date = document.getElementById('tx-date').value;
+  const note = document.getElementById('tx-note').value;
+  if (!material_id) { notify('נא לבחור חומר גלם','error'); return; }
+  if (!quantity||quantity<=0) { notify('נא להזין כמות תקינה','error'); return; }
+  if (!date) { notify('נא לבחור תאריך','error'); return; }
+  try {
+    const {data, error} = await db.from('transactions').insert({material_id, type, quantity: +quantity, date, note: note||null}).select();
+    if (error) throw error;
+    notify(type==='in'?'📦 כניסה נרשמה בהצלחה':'📤 יציאה נרשמה בהצלחה');
+    clearTx();
+    loadHistory();
+  } catch(err) {
+    console.error('Transaction error:', err);
+    notify('שגיאה: ' + (err.message||'בדוק חיבור לרשת'), 'error');
+  }
+}
+
+function clearTx() {
+  ['tx-qty','tx-bags','tx-note'].forEach(id => document.getElementById(id).value='');
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('למחוק רשומה זו לצמיתות?')) return;
+  try {
+    const {error} = await db.from('transactions').delete().eq('id', id);
+    if (error) throw error;
+    notify('🗑 רשומה נמחקה בהצלחה');
+    loadHistory();
+  } catch(err) {
+    notify('שגיאה במחיקה: ' + (err.message||err), 'error');
+  }
+}
+
+async function loadHistory() {
+  const matId = document.getElementById('f-mat')?.value;
+  const from = document.getElementById('f-from')?.value;
+  const to = document.getElementById('f-to')?.value;
+  const tbody = document.getElementById('hist-tbody');
+  try {
+    let q = db.from('transactions').select('*,materials(name)').order('date',{ascending:false}).order('created_at',{ascending:false}).limit(80);
+    if (matId) q=q.eq('material_id',matId);
+    if (from) q=q.gte('date',from);
+    if (to) q=q.lte('date',to);
+    const {data, error} = await q;
+    if (error) throw error;
+    if (!data||!data.length) { tbody.innerHTML='<tr><td colspan="5" class="loading">אין נתונים</td></tr>'; return; }
+    tbody.innerHTML = data.map(t=>`<tr>
+      <td>${t.date}</td><td>${t.materials?.name||'—'}</td>
+      <td class="${t.type==='in'?'type-in':'type-out'}">${t.type==='in'?'📦 כניסה':'📤 יציאה'}</td>
+      <td>${(+t.quantity).toFixed(3)}</td><td>${t.note||'—'}</td>
+      <td><button class="btn-delete" onclick="deleteTransaction(${t.id})" title="מחק רשומה">🗑</button></td>
+    </tr>`).join('');
+  } catch(err) {
+    console.error('History error:', err);
+    tbody.innerHTML=`<tr><td colspan="5" style="color:var(--red);padding:16px">❌ שגיאת חיבור: ${err.message||err}</td></tr>`;
+  }
+}
+
+// ─── CAMPAIGNS ────────────────────────────────────────────────
+function campTab(tab, btn) {
+  ['list','new','entry'].forEach(t => document.getElementById('ctab-'+t).style.display = t===tab?'block':'none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab==='list') loadCampList();
+  if (tab==='entry') { loadCampSelects(); setupConsInputs(); }
+}
+
+async function loadCampList() {
+  const {data} = await db.from('campaigns').select('*').order('start_date',{ascending:false});
+  const cont = document.getElementById('camp-list');
+  if (!data||!data.length) { cont.innerHTML='<div class="loading">אין קמפיינים. צור קמפיין חדש.</div>'; return; }
+  cont.innerHTML = data.map(c=>`<div class="campaign-card">
+    <div><div class="campaign-name">🏭 ${c.name}</div>
+    <div class="campaign-meta">התחלה: ${c.start_date}${c.end_date?' | סיום: '+c.end_date:''}</div></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="${c.status==='active'?'badge-active':'badge-done'}">${c.status==='active'?'פעיל':'הסתיים'}</span>
+      <button class="btn-delete" onclick="deleteCampaign(${c.id})" title="מחק קמפיין">🗑</button>
+    </div>
+  </div>`).join('');
+}
+
+async function createCampaign() {
+  const name = document.getElementById('camp-name').value;
+  const start_date = document.getElementById('camp-start').value;
+  if (!name||!start_date) { notify('נא למלא שם ותאריך','error'); return; }
+  const {error} = await db.from('campaigns').insert({name,start_date});
+  if (error) { notify('שגיאה: '+error.message,'error'); return; }
+  notify('✅ קמפיין נוצר!');
+  document.getElementById('camp-name').value='';
+  campTab('list', document.querySelector('.tab'));
+}
+
+async function loadCampSelects() {
+  const {data} = await db.from('campaigns').select('*').eq('status','active').order('start_date',{ascending:false});
+  const sel = document.getElementById('e-camp');
+  if (!data||!data.length) { sel.innerHTML='<option value="">אין קמפיינים פעילים</option>'; return; }
+  sel.innerHTML = data.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('e-date').value = today();
+  onCampChange();
+}
+
+async function setupConsInputs() {
+  if (!mats.length) { const {data}=await db.from('materials').select('*').order('id'); mats=data||[]; }
+  document.getElementById('cons-inputs').innerHTML = mats.map(m=>`
+    <div class="cons-box">
+      <label>${m.name} (שקים)</label>
+      <input type="number" id="c-${m.id}" placeholder="0" step="1" min="0" inputmode="numeric" data-bag="${m.bag_size}">
+    </div>`).join('');
+}
+
+async function onCampChange() {
+  await setupConsInputs();
+  await loadExistingEntry();
+}
+
+async function loadExistingEntry() {
+  const campaign_id = parseInt(document.getElementById('e-camp').value);
+  const entry_date = document.getElementById('e-date').value;
+  if (!campaign_id || !entry_date) { await loadCampSummary(); return; }
+  const {data} = await db.from('campaign_daily_entries')
+    .select('*,campaign_material_consumption(*)')
+    .eq('campaign_id', campaign_id).eq('entry_date', entry_date)
+    .maybeSingle();
+  if (data) {
+    document.getElementById('e-prod').value = data.production_qty != null ? data.production_qty : '';
+    (data.campaign_material_consumption||[]).forEach(c => {
+      const el = document.getElementById('c-'+c.material_id);
+      const mat = mats.find(m => m.id === c.material_id);
+      if (el && mat && c.consumed_qty) el.value = Math.round(c.consumed_qty / (mat.bag_size||1));
+    });
+  } else {
+    document.getElementById('e-prod').value = '';
+    mats.forEach(m => { const el = document.getElementById('c-'+m.id); if (el) el.value = ''; });
+  }
+  await loadCampSummary();
+}
+
+async function submitEntry() {
+  const campaign_id = parseInt(document.getElementById('e-camp').value);
+  const entry_date = document.getElementById('e-date').value;
+  const production_qty = parseFloat(document.getElementById('e-prod').value)||0;
+  if (!campaign_id||!entry_date) { notify('נא לבחור קמפיין ותאריך','error'); return; }
+  const {data:ed, error:e1} = await db.from('campaign_daily_entries')
+    .upsert({campaign_id,entry_date,production_qty},{onConflict:'campaign_id,entry_date'}).select().single();
+  if (e1) { notify('שגיאה: '+e1.message,'error'); return; }
+  const cons = mats.map(m=>{
+    const el = document.getElementById('c-'+m.id);
+    const bags = parseFloat(el?.value)||0;
+    return {campaign_daily_entry_id:ed.id, material_id:m.id, consumed_qty: bags * (m.bag_size||1)};
+  });
+  const {error:e2} = await db.from('campaign_material_consumption').upsert(cons,{onConflict:'campaign_daily_entry_id,material_id'});
+  if (e2) { notify('שגיאה: '+e2.message,'error'); return; }
+  notify('✅ הזנה נשמרה');
+  document.getElementById('e-prod').value='';
+  mats.forEach(m=>{const el=document.getElementById('c-'+m.id);if(el)el.value='';});
+  await loadCampSummary();
+}
+
+async function loadCampSummary() {
+  const campaign_id = parseInt(document.getElementById('e-camp').value);
+  if (!campaign_id) return;
+  const {data:entries} = await db.from('campaign_daily_entries')
+    .select('*,campaign_material_consumption(*,materials(name,theoretical_input))')
+    .eq('campaign_id',campaign_id).order('entry_date');
+  if (!entries||!entries.length) { document.getElementById('camp-summary').style.display='none'; return; }
+  document.getElementById('camp-summary').style.display='block';
+  const totalProd = entries.reduce((s,e)=>s+(e.production_qty||0),0);
+  const matTotals = {};
+  mats.forEach(m=>{matTotals[m.id]={name:m.name,total:0,theoretical:m.theoretical_input};});
+  entries.forEach(e=>(e.campaign_material_consumption||[]).forEach(c=>{if(matTotals[c.material_id])matTotals[c.material_id].total+=c.consumed_qty||0;}));
+  _campTotalProd = totalProd;
+  document.getElementById('camp-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${entries.length}</div><div class="stat-lbl">ימי הזנה</div></div>
+    <div class="stat-box"><div class="stat-val">${totalProd.toLocaleString(undefined,{maximumFractionDigits:1})}</div><div class="stat-lbl">ייצור ברוטו (ט')</div></div>
+    <div class="stat-box"><div class="stat-val"><input id="camp-pachat-input" type="number" min="0" max="100" step="0.1" placeholder="0" style="width:60px;font-size:1.1rem;text-align:center;border:1px solid var(--border);border-radius:6px;padding:2px 4px;" oninput="calcCampNet()"></div><div class="stat-lbl">פחת משוער (%)</div></div>
+    <div class="stat-box"><div class="stat-val" id="camp-net-val">—</div><div class="stat-lbl">ייצור נטו (ט')</div></div>`;
+  document.getElementById('camp-rows').innerHTML = entries.map(e=>{
+    const c={}; (e.campaign_material_consumption||[]).forEach(x=>{c[x.material_id]=x.consumed_qty;});
+    return `<tr><td>${e.entry_date}</td><td>${(e.production_qty||0).toFixed(1)}</td>${mats.map(m=>`<td>${(c[m.id]||0).toFixed(3)}</td>`).join('')}</tr>`;
+  }).join('');
+  document.getElementById('theory-rows').innerHTML = Object.values(matTotals).map(m=>{
+    const actual = totalProd>0 ? m.total/totalProd : 0;
+    const diff = actual - m.theoretical;
+    return `<tr><td>${m.name}</td><td>${m.theoretical.toFixed(4)}</td><td>${actual.toFixed(4)}</td>
+      <td class="${diff<=0?'diff-pos':'diff-neg'}">${diff>0?'+':''}${diff.toFixed(4)}</td></tr>`;
+  }).join('');
+}
+
+function calcCampNet() {
+  const pct = parseFloat(document.getElementById('camp-pachat-input').value) || 0;
+  const net = _campTotalProd * (1 - pct / 100);
+  document.getElementById('camp-net-val').textContent = net.toLocaleString(undefined, {maximumFractionDigits:1});
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('למחוק את הקמפיין? פעולה זו אינה הפיכה.')) return;
+  const {data:entries} = await db.from('campaign_daily_entries').select('id').eq('campaign_id',id);
+  if (entries&&entries.length) {
+    const ids = entries.map(e=>e.id);
+    await db.from('campaign_material_consumption').delete().in('campaign_daily_entry_id',ids);
+    await db.from('campaign_daily_entries').delete().eq('campaign_id',id);
+  }
+  const {error} = await db.from('campaigns').delete().eq('id',id);
+  if (error) { notify('שגיאה: '+error.message,'error'); return; }
+  notify('🗑 קמפיין נמחק');
+  loadCampList();
+}
+
+async function closeCampaign() {
+  const id = parseInt(document.getElementById('e-camp').value);
+  if (!id) return;
+  if (!confirm('לסגור את הקמפיין?')) return;
+  await db.from('campaigns').update({status:'completed',end_date:today()}).eq('id',id);
+  notify('🔒 קמפיין נסגר');
+  await loadCampSelects(); await loadCampList();
+}
+
+// ─── REPORTS ──────────────────────────────────────────────────
+function initReport() {
+  const sel = document.getElementById('r-year');
+  const now = new Date();
+  sel.innerHTML='';
+  for (let y=now.getFullYear();y>=2024;y--) sel.innerHTML+=`<option value="${y}">${y}</option>`;
+  document.getElementById('r-month').value = now.getMonth()+1;
+  initCampaignReportTab();
+}
+
+function setReportMode(mode) {
+  reportMode = mode;
+  document.getElementById('monthly-form').style.display = mode==='monthly' ? '' : 'none';
+  document.getElementById('campaign-form').style.display = mode==='campaign' ? '' : 'none';
+  document.getElementById('report-out').style.display = 'none';
+  document.getElementById('campaign-report-out').style.display = 'none';
+  document.getElementById('mode-monthly-btn').className = mode==='monthly' ? 'btn btn-primary' : 'btn btn-outline';
+  document.getElementById('mode-camp-btn').className = mode==='campaign' ? 'btn btn-primary' : 'btn btn-outline';
+}
+
+async function initCampaignReportTab() {
+  if (_campRptList) { _fillCampRptSelect(); return; }
+  const {data} = await db.from('campaigns').select('id,name,start_date,end_date,status').order('id',{ascending:false});
+  _campRptList = data || [];
+  _fillCampRptSelect();
+}
+
+function _fillCampRptSelect() {
+  const sel = document.getElementById('r-camp');
+  sel.innerHTML = '<option value="">-- בחר קמפיין --</option>' +
+    (_campRptList||[]).map(c=>`<option value="${c.id}" data-start="${c.start_date||''}" data-end="${c.end_date||today()}">${c.name}${c.status==='completed'?' (סגור)':' (פעיל)'}</option>`).join('');
+}
+
+function onCampRptChange() {
+  const sel = document.getElementById('r-camp');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  document.getElementById('r-start').value = opt.dataset.start || '';
+  document.getElementById('r-end').value = opt.dataset.end || today();
+}
+
+async function genReport() {
+  if (!mats.length) { const {data}=await db.from('materials').select('*').order('id'); mats=data||[]; }
+  const year = parseInt(document.getElementById('r-year').value);
+  const month = parseInt(document.getElementById('r-month').value);
+  const start = `${year}-${String(month).padStart(2,'0')}-01`;
+  const end = new Date(year,month,0).toISOString().split('T')[0];
+  const prevEnd = new Date(year,month-1,0).toISOString().split('T')[0];
+  rptData=[];
+  for (const m of mats) {
+    const {data:b}=await db.from('transactions').select('type,quantity').eq('material_id',m.id).lte('date',prevEnd);
+    let opening=(b||[]).reduce((s,t)=>s+(t.type==='in'?t.quantity:-t.quantity),0);
+    const {data:cur}=await db.from('transactions').select('type,quantity').eq('material_id',m.id).gte('date',start).lte('date',end);
+    let inQ=0,outQ=0; (cur||[]).forEach(t=>{if(t.type==='in')inQ+=t.quantity;else outQ+=t.quantity;});
+    rptData.push({name:m.name,opening:Math.max(0,opening),inQ,outQ,closing:Math.max(0,opening+inQ-outQ)});
+  }
+  document.getElementById('report-tbody').innerHTML = rptData.map(r=>`<tr>
+    <td>${r.name}</td><td>${r.opening.toFixed(3)}</td>
+    <td class="type-in">${r.inQ.toFixed(3)}</td>
+    <td class="type-out">${r.outQ.toFixed(3)}</td>
+    <td><strong>${r.closing.toFixed(3)}</strong></td>
+  </tr>`).join('');
+  document.getElementById('report-out').style.display='block';
+}
+
+function exportXlsx() {
+  if (!rptData.length) { notify('נא להפיק דוח קודם','error'); return; }
+  const y=document.getElementById('r-year').value, m=document.getElementById('r-month').value;
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['חומר גלם','מלאי פתיחה (טון)','כניסות (טון)','יציאות (טון)','מלאי סגירה (טון)'],
+    ...rptData.map(r=>[r.name,+r.opening.toFixed(3),+r.inQ.toFixed(3),+r.outQ.toFixed(3),+r.closing.toFixed(3)])
+  ]);
+  ws['!cols']=[{wch:20},{wch:18},{wch:14},{wch:14},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,`דוח ${m}-${y}`);
+  XLSX.writeFile(wb,`דוח_חומרי_גלם_${m}_${y}.xlsx`);
+  notify('📥 Excel הורד');
+}
+
+// ─── CAMPAIGN REPORT ──────────────────────────────────────────
+
+async function genCampaignReport() {
+  const campaign_id = parseInt(document.getElementById('r-camp').value);
+  if (!campaign_id) { notify('נא לבחור קמפיין','error'); return; }
+  const startDate = document.getElementById('r-start').value;
+  const endDate   = document.getElementById('r-end').value;
+  if (!startDate || !endDate) { notify('נא לבחור טווח תאריכים','error'); return; }
+  if (startDate > endDate) { notify('תאריך ההתחלה חייב להיות לפני תאריך הסיום','error'); return; }
+
+  if (!mats.length) { const {data}=await db.from('materials').select('*').order('id'); mats=data||[]; }
+
+  // שליפת רשומות יומיות בטווח
+  const {data:entries,error:e1} = await db.from('campaign_daily_entries')
+    .select('*,campaign_material_consumption(*,materials(name,theoretical_input))')
+    .eq('campaign_id', campaign_id)
+    .gte('entry_date', startDate)
+    .lte('entry_date', endDate)
+    .order('entry_date');
+  if (e1) { notify('שגיאה: '+e1.message,'error'); return; }
+  campRptEntries = entries || [];
+
+  if (!campRptEntries.length) { notify('אין נתוני ייצור בטווח זה','error'); return; }
+
+  // סיכום ייצור
+  const totalProd = campRptEntries.reduce((s,e)=>s+(e.production_qty||0),0);
+  const avgDailyProd = totalProd / campRptEntries.length;
+
+  // סיכום צריכה לפי חומר
+  const consumed = {}; // material_id -> total consumed_qty
+  campRptEntries.forEach(e=>(e.campaign_material_consumption||[]).forEach(c=>{
+    consumed[c.material_id] = (consumed[c.material_id]||0) + (c.consumed_qty||0);
+  }));
+
+  // שליפת transactions למלאי פתיחה וסגירה לכל חומר
+  campRptData = [];
+  const prevDay = new Date(startDate); prevDay.setDate(prevDay.getDate()-1);
+  const prevEnd = prevDay.toISOString().split('T')[0];
+
+  for (const m of mats) {
+    const [{data:before},{data:inRange}] = await Promise.all([
+      db.from('transactions').select('type,quantity').eq('material_id',m.id).lte('date',prevEnd),
+      db.from('transactions').select('type,quantity').eq('material_id',m.id).gte('date',startDate).lte('date',endDate)
+    ]);
+    const opening = Math.max(0,(before||[]).reduce((s,t)=>s+(t.type==='in'?+t.quantity:-t.quantity),0));
+    let inQ=0,outQ=0;
+    (inRange||[]).forEach(t=>{ if(t.type==='in') inQ+=+t.quantity; else outQ+=+t.quantity; });
+    const closing = Math.max(0, opening + inQ - outQ);
+    const cons = consumed[m.id] || 0;
+    const actualInput = totalProd>0 ? cons/totalProd : 0;
+    const diff = actualInput - (m.theoretical_input||0);
+    campRptData.push({
+      name: m.name, opening, closing, inQ, outQ,
+      consumed: cons, theoretical: m.theoretical_input||0, actualInput, diff
+    });
+  }
+
+  // הצגת סיכום ייצור
+  document.getElementById('camp-rpt-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${campRptEntries.length}</div><div class="stat-lbl">ימי ייצור</div></div>
+    <div class="stat-box"><div class="stat-val">${totalProd.toLocaleString(undefined,{maximumFractionDigits:1})}</div><div class="stat-lbl">סך ייצור (ט')</div></div>
+    <div class="stat-box"><div class="stat-val">${avgDailyProd.toLocaleString(undefined,{maximumFractionDigits:1})}</div><div class="stat-lbl">ממוצע יומי (ט')</div></div>`;
+
+  // הצגת טבלת חומרים
+  document.getElementById('camp-rpt-tbody').innerHTML = campRptData.map(r=>`<tr>
+    <td><strong>${r.name}</strong></td>
+    <td>${r.opening.toFixed(3)}</td>
+    <td>${r.closing.toFixed(3)}</td>
+    <td>${r.consumed.toFixed(3)}</td>
+    <td>${r.theoretical.toFixed(4)}</td>
+    <td>${r.actualInput.toFixed(4)}</td>
+    <td class="${r.diff<=0?'diff-pos':'diff-neg'}">${r.diff>0?'+':''}${r.diff.toFixed(4)}</td>
+  </tr>`).join('');
+
+  document.getElementById('campaign-report-out').style.display = 'block';
+}
+
+async function exportCampaignXlsx() {
+  if (!campRptData.length || !campRptEntries.length) { notify('נא להפיק דוח קודם','error'); return; }
+
+  const startDate = document.getElementById('r-start').value;
+  const endDate   = document.getElementById('r-end').value;
+  const campName  = (document.getElementById('r-camp').options[document.getElementById('r-camp').selectedIndex]?.text || '').replace(/\s*\(.*\)$/,'').trim();
+  const totalProd = campRptEntries.reduce((s,e)=>s+(e.production_qty||0),0);
+  const avgDaily  = totalProd / campRptEntries.length;
+
+  // --- גיליון יחיד: סיכום + מלאי + ייצור יומי ---
+  const rows = [
+    ['דוח קמפיין:', campName],
+    ['מתאריך:', startDate, 'עד תאריך:', endDate],
+    ['ימי ייצור:', campRptEntries.length, 'סך ייצור (ט\'):', +totalProd.toFixed(1), 'ממוצע יומי (ט\'):', +avgDaily.toFixed(1)],
+    [],
+    ['חומר גלם', 'מלאי פתיחה (ט\')', 'מלאי סגירה (ט\')', 'נצרך (ט\')', 'תשומה תיאורטית', 'תשומה בפועל', 'הפרש'],
+    ...campRptData.map(r=>[r.name,+r.opening.toFixed(3),+r.closing.toFixed(3),+r.consumed.toFixed(3),+r.theoretical.toFixed(4),+r.actualInput.toFixed(4),+r.diff.toFixed(4)]),
+    [],
+    ['תאריך', 'ייצור יומי (ט\')'],
+    ...campRptEntries.map(e=>[e.entry_date, +(e.production_qty||0).toFixed(1)])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:22},{wch:18},{wch:18},{wch:14},{wch:18},{wch:14},{wch:12}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'דוח קמפיין');
+
+  // חישוב שורת התחלת הגרף (מתחת לכל הנתונים)
+  const chartStartRow = 5 + campRptData.length + 2 + campRptEntries.length + 2;
+
+  // צייר גרף על canvas מוסתר
+  const canvas = document.getElementById('chart-canvas');
+  const ctx = canvas.getContext('2d');
+  if (canvas._chartInstance) { canvas._chartInstance.destroy(); }
+  canvas._chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: campRptEntries.map(e=>e.entry_date),
+      datasets: [{
+        label: 'ייצור יומי (ט\')',
+        data: campRptEntries.map(e=>+(e.production_qty||0).toFixed(1)),
+        backgroundColor: 'rgba(15,122,56,0.7)',
+        borderColor: 'rgba(15,122,56,1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: false,
+      plugins: { legend: { display: true }, title: { display: true, text: 'ייצור יומי בקמפיין' } },
+      scales: { x: { ticks: { maxRotation: 45 } }, y: { beginAtZero: true } }
+    }
+  });
+
+  await new Promise(r=>setTimeout(r,300));
+  const chartBase64 = canvas.toDataURL('image/png').split(',')[1];
+
+  // כתוב XLSX ל-Uint8Array
+  const xlsxBin = XLSX.write(wb, {bookType:'xlsx', type:'binary'});
+  const u8 = new Uint8Array(xlsxBin.length);
+  for (let i=0;i<xlsxBin.length;i++) u8[i]=xlsxBin.charCodeAt(i)&0xFF;
+
+  // הזרק גרף ל-XLSX דרך JSZip
+  try {
+    const zip = await JSZip.loadAsync(u8);
+
+    zip.file('xl/media/image1.png', chartBase64, {base64:true});
+
+    const drawingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <xdr:twoCellAnchor editAs="oneCell">
+    <xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${chartStartRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+    <xdr:to><xdr:col>12</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${chartStartRow+25}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+    <xdr:pic>
+      <xdr:nvPicPr><xdr:cNvPr id="2" name="Chart"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
+      <xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
+      <xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+    </xdr:pic>
+    <xdr:clientData/>
+  </xdr:twoCellAnchor>
+</xdr:wsDr>`;
+    zip.file('xl/drawings/drawing1.xml', drawingXml);
+
+    const drawingRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
+</Relationships>`;
+    zip.file('xl/drawings/_rels/drawing1.xml.rels', drawingRels);
+
+    // sheet1 rels - גיליון יחיד
+    const sheet1Rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+</Relationships>`;
+    zip.file('xl/worksheets/_rels/sheet1.xml.rels', sheet1Rels);
+
+    // עדכן sheet1.xml להוסיף הפניה ל-drawing
+    const sheet1Xml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+    const updatedSheet1 = sheet1Xml.replace('</worksheet>',
+      '<drawing r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/></worksheet>');
+    zip.file('xl/worksheets/sheet1.xml', updatedSheet1);
+
+    // עדכן [Content_Types].xml
+    const ctXml = await zip.file('[Content_Types].xml').async('string');
+    let updatedCt = ctXml;
+    if (!ctXml.includes('Extension="png"')) {
+      updatedCt = updatedCt.replace(/(<Types[^>]*>)/, '$1<Default Extension="png" ContentType="image/png"/>');
+    }
+    if (!ctXml.includes('drawing1.xml')) {
+      updatedCt = updatedCt.replace('</Types>',
+        '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+    }
+    zip.file('[Content_Types].xml', updatedCt);
+
+    const blob = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `דוח_קמפיין_${startDate}_${endDate}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify('📥 Excel הורד');
+  } catch(err) {
+    console.error('שגיאה בבניית Excel:', err);
+    XLSX.writeFile(wb, `דוח_קמפיין_${startDate}_${endDate}.xlsx`);
+    notify('📥 Excel הורד (ללא גרף)');
+  }
+}
+
+// ─── SIMULATION ───────────────────────────────────────────────
+let _simMats = null;
+async function loadSimulation() {
+  if (_simMats) return;
+  const { data, error } = await db.from('materials').select('*').order('id');
+  if (error) { notify('שגיאה בטעינת חומרים', 'error'); return; }
+  _simMats = data || [];
+}
+
+async function runSimulation() {
+  const qty = parseFloat(document.getElementById('sim-qty').value);
+  if (!qty || qty <= 0) { notify('הזן כמות ייצור חיובית', 'error'); return; }
+  await loadSimulation();
+  const rows = await Promise.all(_simMats.map(async m => {
+    const stock = await getStock(m.id);
+    const required = m.theoretical_input * qty;
+    const toOrder = Math.max(0, required - stock);
+    return { name: m.name, stock, required, toOrder };
+  }));
+  const thead = `<thead><tr>
+    <th>חומר</th><th>נדרש (טון)</th><th>מלאי נוכחי (טון)</th><th>להזמין (טון)</th>
+  </tr></thead>`;
+  const tbody = '<tbody>' + rows.map(r => `<tr>
+    <td><strong>${r.name}</strong></td>
+    <td>${r.required.toFixed(3)}</td>
+    <td>${r.stock.toFixed(3)}</td>
+    <td style="font-weight:700;color:${r.toOrder > 0 ? 'var(--red)' : 'var(--green)'}">${r.toOrder.toFixed(3)}</td>
+  </tr>`).join('') + '</tbody>';
+  document.getElementById('sim-table').innerHTML = thead + tbody;
+  document.getElementById('sim-results').style.display = 'block';
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  
+  if (!email || !password) { showLoginError('נא למלא אימייל וסיסמה'); return; }
+  
+  btn.disabled = true;
+  btn.textContent = 'מתחבר...';
+  errEl.classList.remove('show');
+  
+  try {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    onLoginSuccess(data.user);
+  } catch(err) {
+    showLoginError(err.message === 'Invalid login credentials' ? 'אימייל או סיסמה שגויים' : err.message);
+    btn.disabled = false;
+    btn.textContent = 'כניסה למערכת';
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function onLoginSuccess(user) {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('user-info').style.display = 'flex';
+  document.getElementById('user-email').textContent = user.email;
+  loadDashboard();
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('user-info').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  mats = [];
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>
