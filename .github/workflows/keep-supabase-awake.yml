@@ -1,8 +1,13 @@
 # פרויקטים בתוכנית החינם של Supabase נכנסים לשינה אחרי ~7 ימים ללא פעילות.
-# הוורקפלואו הזה שולח בקשת קריאה קטנה פעמיים ביום כדי שהפרויקט יישאר ער.
+# הוורקפלואו הזה שולח בקשת קריאה קטנה פעמיים ביום כדי שהפרויקט יישאר ער,
+# ושולח מייל אחרי כל ניסיון — גם כשהוא מצליח וגם כשהוא נכשל.
 #
 # המפתח כאן הוא anon key — הוא ממילא גלוי ב-index.html שכל אחד יכול לקרוא,
 # ולכן אין טעם להחביא אותו ב-GitHub Secret. ההגנה אמורה להגיע מהרשאות ה-RLS בשרת.
+#
+# המייל נשלח עם curl מול SMTP של Gmail, בלי action של צד שלישי, כדי שהסיסמה
+# לא תעבור דרך קוד חיצוני. צריך שני secrets בריפו: MAIL_USERNAME ו-MAIL_PASSWORD.
+# בלעדיהם הפינג עדיין רץ כרגיל — רק המייל מדולג.
 
 name: Keep Supabase awake
 
@@ -21,24 +26,96 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
+      PROJECT_NAME: "ניהול חומרי גלם (Inventory)"
+      PROJECT_REF: wayigvagjucphixkcsim
+      TABLE: materials
       SUPABASE_URL: https://wayigvagjucphixkcsim.supabase.co
       SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndheWlndmFnanVjcGhpeGtjc2ltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMTQzODIsImV4cCI6MjA5MTU5MDM4Mn0.kCOxuQj8-szUOWg66-c6YVL45g8yjI0s941zGmrX35g
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+      MAIL_TO: moshk3311@gmail.com
     steps:
-      - name: Query the materials table
+      - name: Query the table
+        id: ping
+        continue-on-error: true
         run: |
-          set -euo pipefail
+          set +e
           code=$(curl -sS --max-time 30 --retry 3 --retry-delay 10 --retry-all-errors \
             -o /tmp/response.json -w '%{http_code}' \
-            "${SUPABASE_URL}/rest/v1/materials?select=id&limit=1" \
+            "${SUPABASE_URL}/rest/v1/${TABLE}?select=id&limit=1" \
             -H "apikey: ${SUPABASE_KEY}")
 
           echo "HTTP $code"
-          cat /tmp/response.json
+          head -c 500 /tmp/response.json
           echo
 
-          if [ "$code" != "200" ]; then
-            echo "::error::Supabase returned HTTP $code — the project may be paused. Restore it at https://supabase.com/dashboard/project/wayigvagjucphixkcsim"
-            exit 1
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" = "200" ]
+
+      - name: Email the result
+        if: always() && env.MAIL_PASSWORD != ''
+        run: |
+          set -euo pipefail
+          code="${{ steps.ping.outputs.code }}"
+          if [ "$code" = "200" ]; then
+            status="הצליח"; icon="OK"
+          else
+            status="נכשל"; icon="FAIL"
           fi
 
-          echo "::notice::Supabase project is awake."
+          when=$(date -u '+%d/%m/%Y %H:%M UTC')
+          response=$(head -c 400 /tmp/response.json 2>/dev/null || echo "(אין תשובה)")
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          {
+            echo "פינג ל-Supabase ${status}"
+            echo
+            echo "פרויקט: ${PROJECT_NAME}"
+            echo "טבלה:   ${TABLE}"
+            echo "מועד:   ${when}"
+            echo "קוד:    HTTP ${code}"
+            echo
+            echo "תשובת השרת:"
+            echo "${response}"
+            echo
+            if [ "$code" != "200" ]; then
+              echo "הפרויקט כנראה ישן או שיש בעיה בחיבור. לשחזור:"
+              echo "https://supabase.com/dashboard/project/${PROJECT_REF}"
+              echo
+            fi
+            echo "פירוט ההרצה:"
+            echo "${run_url}"
+          } > /tmp/body.txt
+
+          # נושא בעברית חייב קידוד MIME, והגוף נשלח ב-base64 כדי לא להישבר על אורך שורה
+          subject_raw="[${icon}] פינג ל-Supabase ${status} — ${PROJECT_NAME}"
+          subject_enc="=?UTF-8?B?$(printf '%s' "$subject_raw" | base64 -w 0)?="
+
+          {
+            echo "From: Supabase Keepalive <${MAIL_USERNAME}>"
+            echo "To: ${MAIL_TO}"
+            echo "Subject: ${subject_enc}"
+            echo "MIME-Version: 1.0"
+            echo "Content-Type: text/plain; charset=UTF-8"
+            echo "Content-Transfer-Encoding: base64"
+            echo
+            base64 -w 76 /tmp/body.txt
+          } > /tmp/mail.txt
+
+          curl -sS --ssl-reqd --url 'smtps://smtp.gmail.com:465' \
+            --user "${MAIL_USERNAME}:${MAIL_PASSWORD}" \
+            --mail-from "${MAIL_USERNAME}" \
+            --mail-rcpt "${MAIL_TO}" \
+            --upload-file /tmp/mail.txt
+
+          echo "::notice::נשלח מייל — הפינג ${status} (HTTP ${code})"
+
+      - name: Warn when mail is not configured
+        if: always() && env.MAIL_PASSWORD == ''
+        run: echo "::warning::לא הוגדרו MAIL_USERNAME/MAIL_PASSWORD — לא נשלח מייל."
+
+      - name: Fail the run when the ping failed
+        if: steps.ping.outputs.code != '200'
+        run: |
+          echo "::error::Supabase החזיר HTTP ${{ steps.ping.outputs.code }} — הפרויקט אולי ישן. שחזור: https://supabase.com/dashboard/project/${PROJECT_REF}"
+          exit 1
